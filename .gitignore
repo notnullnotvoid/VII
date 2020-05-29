@@ -1,0 +1,15 @@
+.DS_Store
+build/
+game
+*.gif
+zig/
+zig-cache/
+game.exe
+*.xcodeproj
+bob/bob
+bob/bob.exe
+*.ilk
+*.pdb
+Stranded/
+*.exp
+*.lib
