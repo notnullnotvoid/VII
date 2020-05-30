@@ -1,9 +1,9 @@
 /*
 TODOs:
+- image display support
 - scrollable text area
 - draw blinking cursor at prompt
 - create map
-- image display support
 - spec out puzzles
 - physical terminal graphics
 - startup sound
@@ -43,8 +43,13 @@ BUGS:
 /// TERMINAL                                                                                                         ///
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+struct Line {
+    char * text;
+    Image image;
+};
+
 struct Puzzle {
-    List<char *> prompt;
+    List<Line> prompt;
     List<char *> answer;
 };
 
@@ -60,6 +65,9 @@ List<Puzzle> parse_puzzles() {
             char * token = strtok(line, " \t");
             if (!strcmp(token, p2? "@q2" : "@q1")) {
                 consumingLines = true;
+            } else if (consumingLines && !strcmp(token, "@image")) {
+                char * path = strtok(nullptr, "");
+                puzzles[puzzles.len - 1].prompt.add({ nullptr, load_image(path) });
             } else {
                 consumingLines = false;
                 if (!strcmp(token, "@p2")) {
@@ -74,7 +82,7 @@ List<Puzzle> parse_puzzles() {
                 }
             }
         } else if (consumingLines) {
-            puzzles[puzzles.len - 1].prompt.add(line);
+            puzzles[puzzles.len - 1].prompt.add({ line });
         }
     }
     return puzzles;
@@ -83,8 +91,6 @@ List<Puzzle> parse_puzzles() {
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /// MAIN FUNCTION                                                                                                    ///
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-static const float SPRINT_RETRIGGER_TIME = 0.25f;
 
 #ifdef _WIN32
 # undef main
@@ -98,11 +104,11 @@ int main(int argc, char ** argv) {
     init_profiling_trace(); //TODO: have this not allocate profiling event arenas if we aren't actually using them
 
     #ifdef _WIN32
-        //bool success = load_sdl_functions("link/SDL2.dll");
-        //if (!success) {
-        //    printf("exiting application because we couldn't load SDL dynamically\n");
-        //    exit(1);
-        //}
+        bool success = load_sdl_functions("link/SDL2.dll");
+        if (!success) {
+           printf("exiting application because we couldn't load SDL dynamically\n");
+           exit(1);
+        }
     #else
         //set the current working directory to the folder containing the game's executable
         //NOTE: windows already does this when double-clicking the executable, which I think is all we care about?
@@ -144,7 +150,7 @@ int main(int argc, char ** argv) {
         //      but not both at the same time - this was the source of bad gamma and crashes.
         SDL_GL_SetAttribute(SDL_GL_FRAMEBUFFER_SRGB_CAPABLE, 1);
 
-        SDL_Window * window = SDL_CreateWindow("Stranded",
+        SDL_Window * window = SDL_CreateWindow("Terminal",
             SDL_WINDOWPOS_CENTERED_DISPLAY(windowDisplay),
             SDL_WINDOWPOS_CENTERED_DISPLAY(windowDisplay),
             windowWidth, windowHeight,
@@ -156,7 +162,10 @@ int main(int argc, char ** argv) {
 
         assert(SDL_GL_CreateContext(window));
         if (!gladLoadGLLoader(SDL_GL_GetProcAddress)) {
-            SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Fatal Graphics Error", "Your system does not support OpenGL 3.3.\r\nPlease update your graphics drivers and/or hardware.", NULL);
+            SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR,
+                "Fatal Graphics Error",
+                "Your system does not support OpenGL 3.3.\r\nPlease update your graphics drivers and/or hardware.",
+                NULL);
             printf("failed to load GLAD\n");
             exit(1);
         }
@@ -177,9 +186,6 @@ int main(int argc, char ** argv) {
 
 
     print_log("[] audio init: %f seconds\n", get_time());
-    resetWholeGame: //OOH HELL YEAH BOIIIIIII
-		loud.stopAll();
-
         float frameTimes[100] = {};
         float thisTime = get_time();
         float lastTime = 0;
@@ -198,16 +204,27 @@ int main(int argc, char ** argv) {
         bool giffing = false;
         float gifTimer = 0;
 
+        //terminal data
         const int MAX_INPUT = 40;
-        List<char *> term = {};
+        List<Line> term = {};
         char input[MAX_INPUT + 1] = {};
+        int upscroll = 0;
 
+        //game progression
         List<Puzzle> puzzles = parse_puzzles();
         int puzzleIdx = 0;
 
-        for (char * line : puzzles[puzzleIdx].prompt) {
-            term.add(dsprintf(nullptr, " %s", line));
-        }
+        //print initial puzzle
+        auto print_puzzle = [&] () {
+            for (Line line : puzzles[puzzleIdx].prompt) {
+                if (line.text) {
+                    term.add({ dsprintf(nullptr, " %s", line.text) });
+                } else {
+                    term.add(line);
+                }
+            }
+        };
+        print_puzzle();
 
         gl_error("program init");
     print_log("[] done initializing: %f seconds\n", get_time());
@@ -241,18 +258,20 @@ int main(int argc, char ** argv) {
                 }
 
                 if (event.type == SDL_KEYDOWN && scancode == SDL_SCANCODE_RETURN) {
-                    term.add(dsprintf(nullptr, "> %s", input));
+                    term.add({ dsprintf(nullptr, "> %s", input) });
 
                     //tokenize input
-                    const char * delims = " !\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~";
+                    const char * delims = " !\"#$%&()*+,-./:;<=>?@[\\]^_`{|}~";
                     char * token = strtok(input, delims);
                     List<char *> tokens = {};
-                    do {
-                        for (char * ch = token; *ch; ++ch) {
-                            *ch = tolower(*ch);
-                        }
-                        tokens.add(token);
-                    } while ((token = strtok(nullptr, delims)));
+                    if (token) {
+                        do {
+                            for (char * ch = token; *ch; ++ch) {
+                                *ch = tolower(*ch);
+                            }
+                            tokens.add(token);
+                        } while ((token = strtok(nullptr, delims)));
+                    }
 
                     //check against answer
                     bool correct = tokens.len == puzzles[puzzleIdx].answer.len;
@@ -272,11 +291,9 @@ int main(int argc, char ** argv) {
                     if (puzzleIdx < puzzles.len - 1) {
                         if (correct) {
                             ++puzzleIdx;
-                            for (char * line : puzzles[puzzleIdx].prompt) {
-                                term.add(dsprintf(nullptr, " %s", line));
-                            }
+                            print_puzzle();
                         } else {
-                            term.add(dup(" ERROR: incorrect input"));
+                            term.add({ dup(" ERROR: incorrect input") });
                         }
                     }
                 }
@@ -290,6 +307,10 @@ int main(int argc, char ** argv) {
                     input[c] = event.text.text[0];
                     input[c + 1] = '\0';
                 }
+            } else if (event.type == SDL_MOUSEWHEEL) {
+                //TODO: scrolling
+
+                // upscroll = max(0, )
             }
         }
 
@@ -377,13 +398,26 @@ int main(int argc, char ** argv) {
         int cw = font.glyphWidth;
         int ch = font.glyphHeight * 1.6;
         int tw = 40 * cw;
-        int th = 20 * ch; //TODO: accumulate this to include images
-        int totalHeight = imax(th, term.len * ch);
+        int th = 26 * ch;
+        int totalHeight = 0;
+        for (Line line : term) {
+            if (line.text) {
+                totalHeight += ch;
+            } else {
+                totalHeight += line.image.height;
+            }
+        }
+        totalHeight = imax(th, totalHeight);
         int tx = 20;
         int ty = 20 + th - totalHeight;
-        for (char * line : term) {
-            draw_text(canvas, font, tx, ty, white, line);
-            ty += ch;
+        for (Line line : term) {
+            if (line.text) {
+                draw_text(canvas, font, tx, ty, white, line.text);
+                ty += ch;
+            } else {
+                draw_sprite(canvas, line.image, tx, ty);
+                ty += line.image.height;
+            }
         }
 
         //draw input line

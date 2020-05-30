@@ -16,6 +16,17 @@ TEST QUESTION 2, PLAYER 2
 
 @next
 @q1
+some text
+@image res/term1.png
+some more text
+@q2
+@image res/term1.png
+@a1 no
+@a2 yesn't
+
+
+@next
+@q1
 9      173
 |       |
 |       |

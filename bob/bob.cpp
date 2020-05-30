@@ -204,7 +204,8 @@ int main(int argc, char ** argv) {
     fprintf(out, "ninja_required_version = 1.3\nbuilddir = build\n\n");
     fprintf(out, "rule lib\n");
     fprintf(out, "    command = clang -MMD -MF $out.d -std=c++14 -c $in -o $out -Ilib -Isoloud -ISDL2 "
-        "-D_CRT_SECURE_NO_WARNINGS -Os%s\n", conf == CONFIG_RELEASE? " -flto" : "");
+        "-D_CRT_SECURE_NO_WARNINGS -Os%s\n",
+        conf == CONFIG_RELEASE? " -flto" : "");
     fprintf(out, "    description = Build $in\n");
     fprintf(out, "    depfile = $out.d\n");
     fprintf(out, "rule clib\n");
@@ -215,8 +216,9 @@ int main(int argc, char ** argv) {
     fprintf(out, "rule src\n");
     fprintf(out, "    command = clang -MMD -MF $out.d -std=c++17 -c $in -o $out -Ilib -Isoloud -ISDL2 -Iimgui "
         "-D_CRT_SECURE_NO_WARNINGS -Wall -Wno-absolute-value %s%s%s\n",
-        conf == CONFIG_DEBUG || conf == CONFIG_DEV? "-O0 -g -gcodeview -gfull " : "-Os",
-        conf == CONFIG_DEBUG? " -fsanitize=address " : "", conf == CONFIG_RELEASE? " -flto" : "");
+        conf == CONFIG_DEBUG || conf == CONFIG_DEV? "-O0 -g" : "-Os",
+        conf == CONFIG_DEBUG? " -fsanitize=address " : "",
+        conf == CONFIG_RELEASE? " -flto" : "");
     fprintf(out, "    description = Build $in\n");
     fprintf(out, "    depfile = $out.d\n");
     fprintf(out, "rule link\n");
@@ -228,7 +230,9 @@ int main(int argc, char ** argv) {
     #else
         fprintf(out, "    command = clang $in -o $out -lstdc++ link/libSDL2.a -framework CoreAudio "
             "-framework AudioToolbox -framework CoreVideo -framework ForceFeedback -framework IOKit -framework Carbon "
-            "-framework Metal -framework AppKit -liconv%s%s\n", conf == CONFIG_DEBUG? " -fsanitize=address" : "",
+            "-framework Metal -framework AppKit -liconv%s%s%s\n",
+            conf == CONFIG_DEBUG || conf == CONFIG_DEV? " -g" : "",
+            conf == CONFIG_DEBUG? " -fsanitize=address" : "",
             conf == CONFIG_RELEASE? " -flto" : "");
     #endif
     fprintf(out, "    description = Link $out\n");
