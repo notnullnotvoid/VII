@@ -1,0 +1,54 @@
+ninja_required_version = 1.3
+builddir = build
+
+rule lib
+    command = clang -MMD -MF $out.d -std=c++14 -c $in -o $out -Ilib -Isoloud -ISDL2 -D_CRT_SECURE_NO_WARNINGS -Os
+    description = Build $in
+    depfile = $out.d
+rule clib
+    command = clang -MMD -MF $out.d -c $in -o $out -Ilib -Isoloud -ISDL2 -Os
+    description = Build $in
+    depfile = $out.d
+rule src
+    command = clang -MMD -MF $out.d -std=c++17 -c $in -o $out -Ilib -Isoloud -ISDL2 -Iimgui -D_CRT_SECURE_NO_WARNINGS -Wall -Wno-absolute-value -O0 -g -gcodeview -gfull 
+    description = Build $in
+    depfile = $out.d
+rule link
+    command = clang $in -o $out -lstdc++ link/libSDL2.a -framework CoreAudio -framework AudioToolbox -framework CoreVideo -framework ForceFeedback -framework IOKit -framework Carbon -framework Metal -framework AppKit -liconv
+    description = Link $out
+
+build $builddir/soloud_core_filterops.o: lib soloud/src/soloud_core_filterops.cpp
+build $builddir/soloud_fft_lut.o: lib soloud/src/soloud_fft_lut.cpp
+build $builddir/soloud_core_voicegroup.o: lib soloud/src/soloud_core_voicegroup.cpp
+build $builddir/soloud_bus.o: lib soloud/src/soloud_bus.cpp
+build $builddir/soloud_fader.o: lib soloud/src/soloud_fader.cpp
+build $builddir/soloud_file.o: lib soloud/src/soloud_file.cpp
+build $builddir/soloud.o: lib soloud/src/soloud.cpp
+build $builddir/soloud_sdl2.o: lib soloud/src/soloud_sdl2.cpp
+build $builddir/soloud_audiosource.o: lib soloud/src/soloud_audiosource.cpp
+build $builddir/soloud_fft.o: lib soloud/src/soloud_fft.cpp
+build $builddir/soloud_sdl2_static.o: lib soloud/src/soloud_sdl2_static.cpp
+build $builddir/soloud_core_setters.o: lib soloud/src/soloud_core_setters.cpp
+build $builddir/soloud_core_voiceops.o: lib soloud/src/soloud_core_voiceops.cpp
+build $builddir/soloud_wavstream.o: lib soloud/src/soloud_wavstream.cpp
+build $builddir/soloud_filter.o: lib soloud/src/soloud_filter.cpp
+build $builddir/soloud_queue.o: lib soloud/src/soloud_queue.cpp
+build $builddir/dr_impl.o: lib soloud/src/dr_impl.cpp
+build $builddir/soloud_core_faderops.o: lib soloud/src/soloud_core_faderops.cpp
+build $builddir/soloud_core_basicops.o: lib soloud/src/soloud_core_basicops.cpp
+build $builddir/soloud_wav.o: lib soloud/src/soloud_wav.cpp
+build $builddir/soloud_thread.o: lib soloud/src/soloud_thread.cpp
+build $builddir/soloud_core_getters.o: lib soloud/src/soloud_core_getters.cpp
+build $builddir/soloud_core_3d.o: lib soloud/src/soloud_core_3d.cpp
+build $builddir/stb_vorbis.o: clib soloud/src/stb_vorbis.c
+build $builddir/soloud_sdl2_dll.o: clib soloud/src/soloud_sdl2_dll.c
+build $builddir/msf_gif.o: lib lib/msf_gif.cpp
+build $builddir/trace.o: lib lib/trace.cpp
+build $builddir/Imm.o: lib lib/Imm.cpp
+build $builddir/stb_image.o: lib lib/stb_image.cpp
+build $builddir/pixel.o: lib lib/pixel.cpp
+build $builddir/parson.o: clib lib/parson.c
+build $builddir/glad.o: clib lib/glad.c
+build $builddir/main.o: src src/main.cpp
+
+build game: link $builddir/soloud_core_filterops.o $builddir/soloud_fft_lut.o $builddir/soloud_core_voicegroup.o $builddir/soloud_bus.o $builddir/soloud_fader.o $builddir/soloud_file.o $builddir/soloud.o $builddir/soloud_sdl2.o $builddir/soloud_audiosource.o $builddir/soloud_fft.o $builddir/soloud_sdl2_static.o $builddir/soloud_core_setters.o $builddir/soloud_core_voiceops.o $builddir/soloud_wavstream.o $builddir/soloud_filter.o $builddir/soloud_queue.o $builddir/dr_impl.o $builddir/soloud_core_faderops.o $builddir/soloud_core_basicops.o $builddir/soloud_wav.o $builddir/soloud_thread.o $builddir/soloud_core_getters.o $builddir/soloud_core_3d.o $builddir/stb_vorbis.o $builddir/soloud_sdl2_dll.o $builddir/msf_gif.o $builddir/trace.o $builddir/Imm.o $builddir/stb_image.o $builddir/pixel.o $builddir/parson.o $builddir/glad.o $builddir/main.o
