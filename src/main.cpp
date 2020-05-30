@@ -1,15 +1,14 @@
 /*
 TODOs:
-- image display support
-- scrollable text area
 - draw blinking cursor at prompt
+- clip terminal output
 - create map
 - spec out puzzles
+- colored text?
 - physical terminal graphics
 - startup sound
 - other sounds?
 - replace terminal graphics
-- colored text?
 - screen-space CRT bulge effect
 - better font
 - windows builds
@@ -210,6 +209,23 @@ int main(int argc, char ** argv) {
         char input[MAX_INPUT + 1] = {};
         int upscroll = 0;
 
+        //terminal viewport calculations
+        int cw = font.glyphWidth;
+        int ch = font.glyphHeight * 1.6;
+        int tw = 40 * cw;
+        int th = 26 * ch;
+        auto total_term_height = [&] () {
+            int totalHeight = 0;
+            for (Line line : term) {
+                if (line.text) {
+                    totalHeight += ch;
+                } else {
+                    totalHeight += line.image.height;
+                }
+            }
+            return imax(th, totalHeight);
+        };
+
         //game progression
         List<Puzzle> puzzles = parse_puzzles();
         int puzzleIdx = 0;
@@ -254,11 +270,13 @@ int main(int argc, char ** argv) {
                     int c = strlen(input);
                     if (c > 0) {
                         input[c - 1] = '\0';
+                        upscroll = 0;
                     }
                 }
 
                 if (event.type == SDL_KEYDOWN && scancode == SDL_SCANCODE_RETURN) {
                     term.add({ dsprintf(nullptr, "> %s", input) });
+                    upscroll = 0;
 
                     //tokenize input
                     const char * delims = " !\"#$%&()*+,-./:;<=>?@[\\]^_`{|}~";
@@ -306,11 +324,10 @@ int main(int argc, char ** argv) {
                 if (c < MAX_INPUT && isprint(event.text.text[0])) {
                     input[c] = event.text.text[0];
                     input[c + 1] = '\0';
+                    upscroll = 0;
                 }
             } else if (event.type == SDL_MOUSEWHEEL) {
-                //TODO: scrolling
-
-                // upscroll = max(0, )
+                upscroll = imax(0, imin(total_term_height() - th, upscroll + event.wheel.y * ch));
             }
         }
 
@@ -395,21 +412,8 @@ int main(int argc, char ** argv) {
 
         //draw terminal lines
         Color white = { 255, 255, 255, 255 };
-        int cw = font.glyphWidth;
-        int ch = font.glyphHeight * 1.6;
-        int tw = 40 * cw;
-        int th = 26 * ch;
-        int totalHeight = 0;
-        for (Line line : term) {
-            if (line.text) {
-                totalHeight += ch;
-            } else {
-                totalHeight += line.image.height;
-            }
-        }
-        totalHeight = imax(th, totalHeight);
         int tx = 20;
-        int ty = 20 + th - totalHeight;
+        int ty = 20 + th - total_term_height() + upscroll;
         for (Line line : term) {
             if (line.text) {
                 draw_text(canvas, font, tx, ty, white, line.text);
