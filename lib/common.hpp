@@ -71,7 +71,7 @@ static inline bool file_exists(const char * filepath) {
     return false;
 }
 
-static inline List<char *> split_lines_in_place(char * mutableSrc) {
+static inline List<char *> split_non_empty_lines_in_place(char * mutableSrc) {
     List<char *> lines = {};
     char * line = strtok(mutableSrc, "\r\n");
     while (line) {

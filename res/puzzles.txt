@@ -1,4 +1,20 @@
+@p2
 
+
+
+@q1
+TEST QUESTION 1, PLAYER 1
+(multiple lines)
+ 
+!!!
+@q2
+TEST QUESTION 2, PLAYER 2
+@a1 begin
+@a2 begin
+
+
+
+@next
 @q1
 9      173
 |       |
@@ -14,4 +30,15 @@
  ?                 ?
 @a1 173 9
 @a2 173 9
-          
+
+
+
+@next
+@q1
+End of feed
+@q2
+End of feed
+@a1 none
+@a2 none
+
+

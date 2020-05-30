@@ -1,6 +1,18 @@
 /*
 TODOs:
-- ???
+- scrollable text area
+- draw blinking cursor at prompt
+- create map
+- image display support
+- spec out puzzles
+- physical terminal graphics
+- startup sound
+- other sounds?
+- replace terminal graphics
+- colored text?
+- screen-space CRT bulge effect
+- better font
+- windows builds
 
 REFACTORS:
 - remove old VI code
@@ -26,6 +38,47 @@ BUGS:
 #include "soloud_wav.h"
 #include "soloud_wavstream.h"
 #include "pixel.hpp"
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/// TERMINAL                                                                                                         ///
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+struct Puzzle {
+    List<char *> prompt;
+    List<char *> answer;
+};
+
+//REMINDER: this hasn't been tested!
+List<Puzzle> parse_puzzles() {
+    char * text = read_entire_file("res/puzzles.txt");
+    List<char *> lines = split_non_empty_lines_in_place(text);
+    List<Puzzle> puzzles = {};
+    puzzles.add({});
+    bool p2 = false, consumingLines = false;
+    for (char * line : lines) {
+        if (line[0] == '@') {
+            char * token = strtok(line, " \t");
+            if (!strcmp(token, p2? "@q2" : "@q1")) {
+                consumingLines = true;
+            } else {
+                consumingLines = false;
+                if (!strcmp(token, "@p2")) {
+                    p2 = true;
+                } else if (!strcmp(token, "@next")) {
+                    puzzles.add({});
+                } else if (!strcmp(token, p2? "@a2" : "@a1")) {
+                    while ((token = strtok(nullptr, " \t"))) {
+                        for (char * c = token; *c != '\0'; ++c) *c = tolower(*c);
+                        puzzles[puzzles.len - 1].answer.add(token);
+                    }
+                }
+            }
+        } else if (consumingLines) {
+            puzzles[puzzles.len - 1].prompt.add(line);
+        }
+    }
+    return puzzles;
+}
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /// MAIN FUNCTION                                                                                                    ///
@@ -67,9 +120,9 @@ int main(int argc, char ** argv) {
             return 1;
         }
     print_log("[] SDL init: %f seconds\n", get_time());
-        const int canvasWidth = 420;
-        const int canvasHeight = 240;
-        const int pixelScale = 3;
+        const int canvasWidth = 640;
+        const int canvasHeight = 360;
+        const int pixelScale = 2;
         const int windowWidth = canvasWidth * pixelScale;
         const int windowHeight = canvasHeight * pixelScale;
         const int windowDisplay = 0;
@@ -112,8 +165,6 @@ int main(int argc, char ** argv) {
     print_log("[] SDL create window: %f seconds\n", get_time());
         uint blitShader = create_program(read_entire_file("res/blit.vert"), read_entire_file("res/blit.frag"));
         Canvas canvas = make_canvas(canvasWidth, canvasHeight, 16);
-        Canvas lights = make_canvas(canvasWidth, canvasHeight, 16);
-        Canvas light2 = make_canvas(canvasWidth, canvasHeight, 16); //electric boogaloo
         MonoFont font = load_mono_font("res/font-16-white.png", 8, 16);
     print_log("[] graphics init: %f seconds\n", get_time());
         SoLoud::Soloud loud = {};
@@ -122,7 +173,9 @@ int main(int argc, char ** argv) {
         }
         loud.setMaxActiveVoiceCount(64);
     print_log("[] soloud init: %f seconds\n", get_time());
-        loud.setGlobalVolume(1.0f);
+        loud.setGlobalVolume(0.0f);
+
+
     print_log("[] audio init: %f seconds\n", get_time());
     resetWholeGame: //OOH HELL YEAH BOIIIIIII
 		loud.stopAll();
@@ -131,6 +184,7 @@ int main(int argc, char ** argv) {
         float thisTime = get_time();
         float lastTime = 0;
         float accumulator = 0;
+        float fadeInTimer = 0;
 
         //keyboard input data
         bool keyHeld[SDL_NUM_SCANCODES] = {};
@@ -144,10 +198,16 @@ int main(int argc, char ** argv) {
         bool giffing = false;
         float gifTimer = 0;
 
-        float gameOverTimer = 0; //for both dead and win
-        float fadeInTimer = 0;
-        bool dead = false;
-        bool win = false;
+        const int MAX_INPUT = 40;
+        List<char *> term = {};
+        char input[MAX_INPUT + 1] = {};
+
+        List<Puzzle> puzzles = parse_puzzles();
+        int puzzleIdx = 0;
+
+        for (char * line : puzzles[puzzleIdx].prompt) {
+            term.add(dsprintf(nullptr, " %s", line));
+        }
 
         gl_error("program init");
     print_log("[] done initializing: %f seconds\n", get_time());
@@ -161,9 +221,6 @@ int main(int argc, char ** argv) {
         int gameWidth, gameHeight;
         SDL_GetWindowSize(window, &gameWidth, &gameHeight);
 
-        Vec2 tryAgain = vec2(canvas.width / 2, canvas.height / 2 + 20);
-        Rect tryAgainRect = rect(tryAgain.x - 50, tryAgain.y - 10, 100, 20);
-
         //TODO: should event polling be moved into the tick loop
         //      for theoretical maximum responsiveness?
         SDL_Event event;
@@ -174,10 +231,65 @@ int main(int argc, char ** argv) {
                 SDL_Scancode scancode = event.key.keysym.scancode;
                 keyHeld[scancode] = event.type == SDL_KEYDOWN;
                 keyDown[scancode] |= event.type == SDL_KEYDOWN && !event.key.repeat;
+
+                //handle text input
+                if (event.type == SDL_KEYDOWN && scancode == SDL_SCANCODE_BACKSPACE) {
+                    int c = strlen(input);
+                    if (c > 0) {
+                        input[c - 1] = '\0';
+                    }
+                }
+
+                if (event.type == SDL_KEYDOWN && scancode == SDL_SCANCODE_RETURN) {
+                    term.add(dsprintf(nullptr, "> %s", input));
+
+                    //tokenize input
+                    const char * delims = " !\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~";
+                    char * token = strtok(input, delims);
+                    List<char *> tokens = {};
+                    do {
+                        for (char * ch = token; *ch; ++ch) {
+                            *ch = tolower(*ch);
+                        }
+                        tokens.add(token);
+                    } while ((token = strtok(nullptr, delims)));
+
+                    //check against answer
+                    bool correct = tokens.len == puzzles[puzzleIdx].answer.len;
+                    if (correct) {
+                        for (int i = 0; i < tokens.len; ++i) {
+                            if (strcmp(tokens[i], puzzles[puzzleIdx].answer[i])) {
+                                correct = false;
+                                break;
+                            }
+                        }
+                    }
+
+                    //clear input
+                    input[0] = '\0';
+
+                    //print response
+                    if (puzzleIdx < puzzles.len - 1) {
+                        if (correct) {
+                            ++puzzleIdx;
+                            for (char * line : puzzles[puzzleIdx].prompt) {
+                                term.add(dsprintf(nullptr, " %s", line));
+                            }
+                        } else {
+                            term.add(dup(" ERROR: incorrect input"));
+                        }
+                    }
+                }
             } else if (event.type == SDL_MOUSEBUTTONDOWN && event.button.button == SDL_BUTTON_LEFT) {
                 //left click
             } else if (event.type == SDL_MOUSEBUTTONDOWN && event.button.button == SDL_BUTTON_RIGHT) {
                 //right click
+            } else if (event.type == SDL_TEXTINPUT) {
+                int c = strlen(input);
+                if (c < MAX_INPUT && isprint(event.text.text[0])) {
+                    input[c] = event.text.text[0];
+                    input[c + 1] = '\0';
+                }
             }
         }
 
@@ -201,6 +313,7 @@ int main(int argc, char ** argv) {
         for (int _tcount = 0; accumulator > tickLength / tickRateMultiplier && _tcount < 50; ++_tcount) {
             float tick = tickLength * gameSpeed;
             accumulator -= tickLength / tickRateMultiplier;
+            fadeInTimer += tick;
 
             //toggle gif recording
             if (DOWN(G) && (HELD(LGUI) || HELD(RGUI) || HELD(LCTRL))) {
@@ -212,10 +325,6 @@ int main(int argc, char ** argv) {
                     msf_gif_end(&gifState);
                 }
             }
-
-            //handle end conditions
-            if (dead || win) gameOverTimer += tick;
-            fadeInTimer += tick;
 
             //NOTE: We reset these on a per-tick rather than per-frame basis,
             //      because if we reset per-frame and the tick rate is less
@@ -255,21 +364,38 @@ int main(int argc, char ** argv) {
         glEnable(GL_MULTISAMPLE);
         glDisable(GL_CULL_FACE);
         glClear(GL_COLOR_BUFFER_BIT);
-
         for (int y = 0; y < canvas.height; ++y) {
             for (int x = 0; x < canvas.width; ++x) {
                 canvas[y][x] = { 0, 0, 0, 255 };
             }
         }
 
-        //TODO: draw game
 
-        {
-            if (fadeInTimer > 3) fadeInTimer = 3;
-            float fadeOutTimer = fmaxf(0, fminf(3, 3 - gameOverTimer));
-            float globalVolume = (fadeInTimer / 3) * (fadeOutTimer / 3);
-            loud.setGlobalVolume(globalVolume * 0.666f);
+
+        //draw terminal lines
+        Color white = { 255, 255, 255, 255 };
+        int cw = font.glyphWidth;
+        int ch = font.glyphHeight * 1.6;
+        int tw = 40 * cw;
+        int th = 20 * ch; //TODO: accumulate this to include images
+        int totalHeight = imax(th, term.len * ch);
+        int tx = 20;
+        int ty = 20 + th - totalHeight;
+        for (char * line : term) {
+            draw_text(canvas, font, tx, ty, white, line);
+            ty += ch;
         }
+
+        //draw input line
+        draw_text(canvas, font, tx, ty, white, ">");
+        draw_text(canvas, font, tx + font.glyphWidth * 2, ty, white, input);
+
+
+
+        //fade in sound
+        if (fadeInTimer > 3) fadeInTimer = 3;
+        float globalVolume = (fadeInTimer / 3);
+        loud.setGlobalVolume(globalVolume * 0.666f);
 
         auto draw_text_centered = [] (Canvas canvas, MonoFont font, int cx, int cy, Color color, const char * text) {
             int len = strlen(text);
@@ -278,45 +404,10 @@ int main(int argc, char ** argv) {
             draw_text(canvas, font, x, y, color, text);
         };
 
-        //apply fullscreen overlays
-        {
-            if (fadeInTimer > 3) fadeInTimer = 3;
-            u8 blackOpacity = imin(255, (1 - fadeInTimer / 3) * 255);
-            draw_rect(canvas, 0, 0, canvas.width, canvas.height, { 0, 0, 0, blackOpacity });
-        }
-
-        if (dead) {
-            u8 blackOpacity = imin(255, gameOverTimer / 2 * 255);
-            draw_rect(canvas, 0, 0, canvas.width, canvas.height, { 0, 0, 0, blackOpacity });
-            u8 textOpacity = imax(0, imin(255, (gameOverTimer - 1) / 3 * 191));
-            draw_text_centered(canvas,
-                font, canvas.width / 2, canvas.height / 2 - 40, { 255, 255, 255, textOpacity }, "YOU DIED");
-            int mx, my;
-            SDL_GetMouseState(&mx, &my);
-            Vec2 mousePos = vec2((float)mx * canvas.width / gameWidth, (float)my * canvas.height / gameHeight);
-            u8 textOpacity2 = imax(0, imin(255, (gameOverTimer - 2) / 3 * 255));
-            u8 buttonBaseOpacity = !contains(tryAgainRect, mousePos)? 32 : 64;
-            u8 buttonOpacity = (textOpacity2 * buttonBaseOpacity) >> 8;
-            draw_rect(canvas,
-                tryAgainRect.x, tryAgainRect.y, tryAgainRect.w, tryAgainRect.h, { 255, 255, 255, buttonOpacity });
-            if (!contains(tryAgainRect, mousePos)) textOpacity2 *= 0.75f;
-            draw_text_centered(canvas, font, tryAgain.x, tryAgain.y, { 255, 255, 255, textOpacity2 }, "TRY AGAIN");
-        }
-        if (win) {
-            float beginFade = 0; //gives time for the boat to animate
-            float timer = fmaxf(0, gameOverTimer - beginFade);
-            u8 blackOpacity = imin(255, timer / 2 * 255);
-            draw_rect(canvas, 0, 0, canvas.width, canvas.height, { 255, 255, 255, blackOpacity });
-            u8 textOpacity = imax(0, imin(255, (timer - 1) / 3 * 191));
-            int cx = canvas.width / 2, cy = canvas.height / 2;
-            Color c = { 64, 96, 96, textOpacity };
-            draw_text_centered(canvas, font, cx, cy - 40, c, "YOU ESCAPED");
-            draw_text_centered(canvas, font, cx, cy     , c, "CREDITS:");
-            draw_text_centered(canvas, font, cx, cy + 20, c, "Phillip Trudeau-Tavara   Programming, Sound");
-            draw_text_centered(canvas, font, cx, cy + 40, c, "Miles Fogle                     Programming");
-            draw_text_centered(canvas, font, cx, cy + 60, c, "Isaiah Davis-Stober                     Art");
-            draw_text_centered(canvas, font, cx, cy + 80, c, "Eugenio Bruno                         Music");
-        }
+        //apply fullscreen fade-in overlay
+        fadeInTimer = 3; //DEBUG
+        u8 blackOpacity = imin(255, (1 - fadeInTimer / 3) * 255);
+        draw_rect(canvas, 0, 0, canvas.width, canvas.height, { 0, 0, 0, blackOpacity });
 
         if (giffing && gifTimer > gifCentiseconds / 100.0f) {
             msf_gif_frame(&gifState, (uint8_t *) canvas.pixels, canvas.pitch * 4, gifCentiseconds, 15, false);
@@ -330,10 +421,8 @@ int main(int argc, char ** argv) {
         // char buffer[256];
         // snprintf(buffer, sizeof(buffer), "%4.1f ms", (get_time() - preFrame) * 1000);
         // draw_text(canvas, font, canvas.width - 80, 2, { 255, 255, 255, 100 }, buffer);
-        // snprintf(buffer, sizeof(buffer), "%d%% hp", (int) (playerHealth * 100));
-        // draw_text(canvas, font, canvas.width - 80, 20, { 255, 255, 255, 100 }, buffer);
 
-        draw_canvas(blitShader, 0? lights : canvas, bufferWidth, bufferHeight);
+        draw_canvas(blitShader, canvas, bufferWidth, bufferHeight);
 
         gl_error("after everything");
         SDL_GL_SwapWindow(window);
