@@ -1,6 +1,5 @@
 /*
 TODOs:
-- draw blinking cursor at prompt
 - clip terminal output
 - create map
 - spec out puzzles
@@ -182,8 +181,6 @@ int main(int argc, char ** argv) {
         loud.setMaxActiveVoiceCount(64);
     print_log("[] soloud init: %f seconds\n", get_time());
         loud.setGlobalVolume(0.0f);
-
-
     print_log("[] audio init: %f seconds\n", get_time());
         float frameTimes[100] = {};
         float thisTime = get_time();
@@ -208,6 +205,7 @@ int main(int argc, char ** argv) {
         List<Line> term = {};
         char input[MAX_INPUT + 1] = {};
         int upscroll = 0;
+        float blinkTimer = 0;
 
         //terminal viewport calculations
         int cw = font.glyphWidth;
@@ -271,12 +269,14 @@ int main(int argc, char ** argv) {
                     if (c > 0) {
                         input[c - 1] = '\0';
                         upscroll = 0;
+                        blinkTimer = 0;
                     }
                 }
 
                 if (event.type == SDL_KEYDOWN && scancode == SDL_SCANCODE_RETURN) {
                     term.add({ dsprintf(nullptr, "> %s", input) });
                     upscroll = 0;
+                    blinkTimer = 0;
 
                     //tokenize input
                     const char * delims = " !\"#$%&()*+,-./:;<=>?@[\\]^_`{|}~";
@@ -325,6 +325,7 @@ int main(int argc, char ** argv) {
                     input[c] = event.text.text[0];
                     input[c + 1] = '\0';
                     upscroll = 0;
+                    blinkTimer = 0;
                 }
             } else if (event.type == SDL_MOUSEWHEEL) {
                 upscroll = imax(0, imin(total_term_height() - th, upscroll + event.wheel.y * ch));
@@ -338,6 +339,8 @@ int main(int argc, char ** argv) {
         //assert(dt > 0);
         accumulator += dt;
         gifTimer += dt;
+        blinkTimer += dt;
+        fadeInTimer += dt;
 
         //update
         float gameSpeed = 1;
@@ -351,7 +354,6 @@ int main(int argc, char ** argv) {
         for (int _tcount = 0; accumulator > tickLength / tickRateMultiplier && _tcount < 50; ++_tcount) {
             float tick = tickLength * gameSpeed;
             accumulator -= tickLength / tickRateMultiplier;
-            fadeInTimer += tick;
 
             //toggle gif recording
             if (DOWN(G) && (HELD(LGUI) || HELD(RGUI) || HELD(LCTRL))) {
@@ -427,6 +429,10 @@ int main(int argc, char ** argv) {
         //draw input line
         draw_text(canvas, font, tx, ty, white, ">");
         draw_text(canvas, font, tx + font.glyphWidth * 2, ty, white, input);
+        if (fmodf(blinkTimer * 1.5f, 2) < 1) {
+            draw_text(canvas, font, tx + font.glyphWidth * (2 + strlen(input)), ty - 2, white, "\x1F");
+            draw_text(canvas, font, tx + font.glyphWidth * (2 + strlen(input)), ty + 2, white, "\x1F");
+        }
 
 
 
