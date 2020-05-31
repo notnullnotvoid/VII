@@ -3,15 +3,21 @@ TODOs:
 - arrow keys to scroll
 - scroll bar
 - create map?
-- startup sound
 - other sounds?
-- ambiance (buzz?)
 - bleed/bloom (small and large radius blurs)
-    - maybe the bleed on (or mostly) goes horizontal?
+    - maybe the bleed only (or mostly) goes horizontal?
 - screen-space CRT bulge effect
-- colored text?
+- red error text?
+- double-check solutions + full playtest
 - remove debug stuff (anti-fade-in, "pass" keyword)
 - windows builds
+
+SOUND NOTEs:
+- steins gate OP beginning?
+- increasing volume white noise (can generate in audacity)
+- hard drive failure startup
+- ??? incorrect
+- ??? correct
 
 REFACTORS:
 - running average over frame timings display
@@ -80,7 +86,7 @@ List<Puzzle> parse_puzzles() {
                 }
             }
         } else if (consumingLines) {
-            puzzles[puzzles.len - 1].prompt.add({ dsprintf(nullptr, " %s", line) });
+            puzzles[puzzles.len - 1].prompt.add({ dsprintf(nullptr, "%s", line) });
         }
     }
     return puzzles;
@@ -180,7 +186,15 @@ int main(int argc, char ** argv) {
         }
         loud.setMaxActiveVoiceCount(64);
     print_log("[] soloud init: %f seconds\n", get_time());
-        loud.setGlobalVolume(0.0f);
+        loud.setGlobalVolume(1.0f);
+        SoLoud::WavStream sfx_bgloop;  sfx_bgloop.load("res/bgloop.wav");   sfx_bgloop.setLooping(true);
+        SoLoud::WavStream sfx_bgdrone; sfx_bgdrone.load("res/bgdrone.wav"); sfx_bgdrone.setLooping(true);
+        SoLoud::Wav sfx_startup;       sfx_startup.load("res/startup.wav");
+        SoLoud::Wav sfx_wrong;         sfx_wrong.load("res/wrong.wav");
+        SoLoud::Wav sfx_right;         sfx_right.load("res/right.wav");
+        int handle_bgloop = loud.play(sfx_bgloop, 0.01f);
+        int handle_bgdrone = loud.play(sfx_bgdrone, 0.01f);
+        loud.play(sfx_startup);
     print_log("[] audio init: %f seconds\n", get_time());
         float frameTimes[100] = {};
         float thisTime = get_time();
@@ -307,7 +321,6 @@ int main(int argc, char ** argv) {
                     //DEBUG
                     if (tokens.len == 1 && !strcmp(tokens[0], "pass")) correct = true;
 
-
                     //print response
                     printf("puzzleIdx: %d, puzzles.len: %d, tokens.len: %d, tokens[0]: %s\n",
                         (int) puzzleIdx, (int) puzzles.len, (int) tokens.len, tokens[0]);
@@ -329,8 +342,10 @@ int main(int argc, char ** argv) {
                             term.add({ dup("") });
                             lineIdx = 0;
                             lineTimer = 0;
+                            loud.play(sfx_right, 1.5f);
                         } else {
                             term.add({ dup(" ERROR: incorrect input") });
+                            loud.play(sfx_wrong, 0.25f);
                         }
                     }
 
@@ -366,14 +381,9 @@ int main(int argc, char ** argv) {
         lineTimer += dt;
 
         //handle updating lines
-        float secondsPerLine = 0.02f;
+        float secondsPerLine = 0.025f;
         while (lineIdx < puzzles[puzzleIdx].prompt.len && lineTimer > secondsPerLine) {
             Line line = puzzles[puzzleIdx].prompt[lineIdx];
-            // if (line.text) {
-            //     term.add({ dsprintf(nullptr, " %s", line.text) });
-            // } else {
-            //     term.add(line);
-            // }
             term.add({ dup(line.text), line.image });
             ++lineIdx;
             lineTimer -= secondsPerLine;
@@ -449,7 +459,6 @@ int main(int argc, char ** argv) {
 
 
 
-
         //DEBUG
         // draw_rect(canvas, tx, ty, tw, th, { 0, 0, 0, 255 });
 
@@ -510,11 +519,12 @@ int main(int argc, char ** argv) {
 
         //fade in sound
         if (fadeInTimer > 3) fadeInTimer = 3;
-        float globalVolume = (fadeInTimer / 3);
-        loud.setGlobalVolume(globalVolume * 0.666f);
+        float globalVolume = (fadeInTimer / 3) * 1.0f;
+        loud.setVolume(handle_bgloop, globalVolume);
+        loud.setVolume(handle_bgdrone, globalVolume);
 
         //apply fullscreen fade-in overlay
-        fadeInTimer = 3; //DEBUG
+        // fadeInTimer = 3; //DEBUG
         u8 blackOpacity = imin(255, (1 - fadeInTimer / 3) * 255);
         draw_rect(canvas, 0, 0, canvas.width, canvas.height, { 0, 0, 0, blackOpacity });
 

@@ -547,6 +547,9 @@ static inline void draw_glyph(Canvas & canvas, MonoFont & font, int cx, int cy, 
 }
 
 static inline void draw_text(Canvas & canvas, MonoFont & font, int cx, int cy, Color color, const char * text) {
+    //HACK
+    if (!strncmp(text, " ERROR:", strlen(" ERROR:"))) color = { 248, 166, 136, 255 };
+
     for (int i = 0; text[i] != '\0'; ++i) {
         draw_glyph(canvas, font, cx + i * font.glyphWidth, cy, color, text[i]);
 
