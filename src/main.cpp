@@ -124,8 +124,8 @@ int main(int argc, char ** argv) {
             return 1;
         }
     print_log("[] SDL init: %f seconds\n", get_time());
-        const int canvasWidth = 640;
-        const int canvasHeight = 360;
+        const int canvasWidth = 600;
+        const int canvasHeight = 400;
         const int pixelScale = 2;
         const int windowWidth = canvasWidth * pixelScale;
         const int windowHeight = canvasHeight * pixelScale;
@@ -199,6 +199,9 @@ int main(int argc, char ** argv) {
         MsfGifState gifState = {};
         bool giffing = false;
         float gifTimer = 0;
+
+        //graphics
+        Image background = load_image("res/term2.png");
 
         //terminal data
         const int MAX_INPUT = 40;
@@ -411,6 +414,9 @@ int main(int argc, char ** argv) {
         }
 
 
+
+        //draw background
+        draw_sprite_a1(canvas, background, 0, 0);
 
         //draw terminal lines
         Color white = { 255, 255, 255, 255 };
