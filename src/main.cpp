@@ -82,7 +82,7 @@ List<Puzzle> parse_puzzles() {
                 }
             }
         } else if (consumingLines) {
-            puzzles[puzzles.len - 1].prompt.add({ line });
+            puzzles[puzzles.len - 1].prompt.add({ dsprintf(nullptr, " %s", line) });
         }
     }
     return puzzles;
@@ -309,11 +309,23 @@ int main(int argc, char ** argv) {
                     //DEBUG
                     if (tokens.len == 1 && !strcmp(tokens[0], "pass")) correct = true;
 
-                    //clear input
-                    input[0] = '\0';
 
                     //print response
-                    if (puzzleIdx < puzzles.len - 1) {
+                    printf("puzzleIdx: %d, puzzles.len: %d, tokens.len: %d, tokens[0]: %s\n",
+                        (int) puzzleIdx, (int) puzzles.len, (int) tokens.len, tokens[0]);
+                    if (puzzleIdx == puzzles.len - 2 && tokens.len == 1 && !strcmp(tokens[0], "no")) {
+                        printf("\n\n\nYOU ARE NOT WORTHY\n\n\n");
+
+                        for (int i = 0; i < 100; ++i) {
+                            for (int j = 0; j < 30; ++j) {
+                                printf("%c", rand_int(32, 127));
+                            }
+                            printf("\n");
+                        }
+
+                        fflush(stdout);
+                        exit(1);
+                    } else if (puzzleIdx < puzzles.len - 1) {
                         if (correct) {
                             ++puzzleIdx;
                             term.add({ dup("") });
@@ -323,6 +335,9 @@ int main(int argc, char ** argv) {
                             term.add({ dup(" ERROR: incorrect input") });
                         }
                     }
+
+                    //clear input
+                    input[0] = '\0';
                 }
             } else if (event.type == SDL_MOUSEBUTTONDOWN && event.button.button == SDL_BUTTON_LEFT) {
                 //left click
@@ -356,11 +371,12 @@ int main(int argc, char ** argv) {
         float secondsPerLine = 0.02f;
         while (lineIdx < puzzles[puzzleIdx].prompt.len && lineTimer > secondsPerLine) {
             Line line = puzzles[puzzleIdx].prompt[lineIdx];
-            if (line.text) {
-                term.add({ dsprintf(nullptr, " %s", line.text) });
-            } else {
-                term.add(line);
-            }
+            // if (line.text) {
+            //     term.add({ dsprintf(nullptr, " %s", line.text) });
+            // } else {
+            //     term.add(line);
+            // }
+            term.add({ dup(line.text), line.image });
             ++lineIdx;
             lineTimer -= secondsPerLine;
         }
@@ -439,6 +455,11 @@ int main(int argc, char ** argv) {
         //DEBUG
         // draw_rect(canvas, tx, ty, tw, th, { 0, 0, 0, 255 });
 
+        //draw background
+        if (lineIdx >= 120) {
+            draw_sprite_a1(canvas, background, 0, 0);
+        }
+
         //draw terminal lines
         // Color white = { 255, 255, 255, 255 };
         Color white = { 166, 248, 136, 255 };
@@ -464,7 +485,9 @@ int main(int argc, char ** argv) {
         }
 
         //draw background
-        draw_sprite_a1(canvas, background, 0, 0);
+        if (lineIdx < 120) {
+            draw_sprite_a1(canvas, background, 0, 0);
+        }
 
 
 
