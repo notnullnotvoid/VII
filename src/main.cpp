@@ -1,19 +1,23 @@
 /*
 TODOs:
-- clip terminal output
-- create map
 - spec out puzzles
-- colored text?
-- physical terminal graphics
+- non-instantaneous text appearance
+- special ending
+- hacky highlight question marks in grey?
+- arrow keys to scroll
+- scroll bar
+- create map?
 - startup sound
 - other sounds?
-- replace terminal graphics
+- ambiance (buzz?)
+- bleed/bloom (small and large radius blurs)
+    - maybe the bleed on (or mostly) goes horizontal?
 - screen-space CRT bulge effect
-- better font
+- colored text?
+- remove debug stuff (anti-fade-in, "skip" keyword)
 - windows builds
 
 REFACTORS:
-- remove old VI code
 - running average over frame timings display
 - write SSE2 versions of all blit routines
 - further SSE optimization of routines that are currently scalar
@@ -124,7 +128,7 @@ int main(int argc, char ** argv) {
             return 1;
         }
     print_log("[] SDL init: %f seconds\n", get_time());
-        const int canvasWidth = 600;
+        const int canvasWidth = 540;
         const int canvasHeight = 400;
         const int pixelScale = 2;
         const int windowWidth = canvasWidth * pixelScale;
@@ -212,9 +216,11 @@ int main(int argc, char ** argv) {
 
         //terminal viewport calculations
         int cw = font.glyphWidth;
-        int ch = font.glyphHeight * 1.6;
-        int tw = 40 * cw;
-        int th = 26 * ch;
+        int ch = font.glyphHeight * 1.5;
+        int tx = 82;
+        int ty = 58;
+        int tw = 33 * cw;
+        int th = 16 * ch;
         auto total_term_height = [&] () {
             int totalHeight = 0;
             for (Line line : term) {
@@ -224,8 +230,15 @@ int main(int argc, char ** argv) {
                     totalHeight += line.image.height;
                 }
             }
-            return imax(th, totalHeight);
+            return imax(th, totalHeight + ch);
         };
+
+        //HACK: punch a hole in the image where the terminal viewport is
+        for (int y = 0; y < th; ++y) {
+            for (int x = 0; x < tw; ++x) {
+                background[ty + y][tx + x] = {};
+            }
+        }
 
         //game progression
         List<Puzzle> puzzles = parse_puzzles();
@@ -282,7 +295,7 @@ int main(int argc, char ** argv) {
                     blinkTimer = 0;
 
                     //tokenize input
-                    const char * delims = " !\"#$%&()*+,-./:;<=>?@[\\]^_`{|}~";
+                    const char * delims = " !\"#$%&()*+,-./:;<=>@[\\]^_`{|}~";
                     char * token = strtok(input, delims);
                     List<char *> tokens = {};
                     if (token) {
@@ -305,6 +318,9 @@ int main(int argc, char ** argv) {
                         }
                     }
 
+                    //DEBUG
+                    if (tokens.len == 1 && !strcmp(tokens[0], "skip")) correct = true;
+
                     //clear input
                     input[0] = '\0';
 
@@ -312,6 +328,7 @@ int main(int argc, char ** argv) {
                     if (puzzleIdx < puzzles.len - 1) {
                         if (correct) {
                             ++puzzleIdx;
+                            term.add({ dup("") });
                             print_puzzle();
                         } else {
                             term.add({ dup(" ERROR: incorrect input") });
@@ -409,36 +426,42 @@ int main(int argc, char ** argv) {
         glClear(GL_COLOR_BUFFER_BIT);
         for (int y = 0; y < canvas.height; ++y) {
             for (int x = 0; x < canvas.width; ++x) {
-                canvas[y][x] = { 0, 0, 0, 255 };
+                canvas[y][x] = { 33, 25, 25, 255 };
             }
         }
 
 
 
-        //draw background
-        draw_sprite_a1(canvas, background, 0, 0);
+
+        //DEBUG
+        // draw_rect(canvas, tx, ty, tw, th, { 0, 0, 0, 255 });
 
         //draw terminal lines
-        Color white = { 255, 255, 255, 255 };
-        int tx = 20;
-        int ty = 20 + th - total_term_height() + upscroll;
+        // Color white = { 255, 255, 255, 255 };
+        Color white = { 166, 248, 136, 255 };
+        // Color white = { 83, 248, 68, 255 };
+        int cx = tx;
+        int cy = ty + th - total_term_height() + upscroll;
         for (Line line : term) {
             if (line.text) {
-                draw_text(canvas, font, tx, ty, white, line.text);
-                ty += ch;
+                draw_text(canvas, font, cx, cy, white, line.text);
+                cy += ch;
             } else {
-                draw_sprite(canvas, line.image, tx, ty);
-                ty += line.image.height;
+                draw_sprite(canvas, line.image, cx, cy);
+                cy += line.image.height;
             }
         }
 
         //draw input line
-        draw_text(canvas, font, tx, ty, white, ">");
-        draw_text(canvas, font, tx + font.glyphWidth * 2, ty, white, input);
+        draw_text(canvas, font, cx, cy, white, ">");
+        draw_text(canvas, font, cx + font.glyphWidth * 2, cy, white, input);
         if (fmodf(blinkTimer * 1.5f, 2) < 1) {
-            draw_text(canvas, font, tx + font.glyphWidth * (2 + strlen(input)), ty - 2, white, "\x1F");
-            draw_text(canvas, font, tx + font.glyphWidth * (2 + strlen(input)), ty + 2, white, "\x1F");
+            draw_text(canvas, font, cx + font.glyphWidth * (2 + strlen(input)), cy - 2, white, "\x1F");
+            draw_text(canvas, font, cx + font.glyphWidth * (2 + strlen(input)), cy + 2, white, "\x1F");
         }
+
+        //draw background
+        draw_sprite_a1(canvas, background, 0, 0);
 
 
 

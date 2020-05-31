@@ -3,42 +3,29 @@
 
 
 @q1
-TEST QUESTION 1, PLAYER 1
-(multiple lines)
- 
-!!!
+Enter password:
 @q2
-TEST QUESTION 2, PLAYER 2
-@a1 begin
-@a2 begin
+Enter password:
+@a1 password
+@a2 password
 
 
+
+TODO: rework this next one maybe?
 
 @next
-@q1
-some text
-@image res/term1.png
-some more text
 @q2
-@image res/term1.png
-@a1 no
-@a2 yesn't
-
-
-@next
+9    173
+|     |
++--+  |    +------+
+   |  |    |      |
 @q1
-9      173
-|       |
-|       |
-+---+   |   +------+
-    |   |   |      |
-@q2
-    |   |   |      |
- +------+   |      |
- |  |       |      |
- |  +-------+      |
- |                 |
- ?                 ?
+   |  |    |      |
+ +----+    |      |
+ | |       |      |
+ | +-------+      |
+ |                |
+ ?                ?
 @a1 173 9
 @a2 173 9
 
@@ -46,10 +33,77 @@ some more text
 
 @next
 @q1
-End of feed
+9    173            76  18
+|     |              |  |
+|     |  +-----------|--+
+|     |  |           |
++--+  |  |  +-----+  |
+   |  |  |  |     |  |
+   |  |  +-----+  |  |
+   |  |     |  |  |  |
 @q2
-End of feed
-@a1 none
-@a2 none
+   |  |     |  |  |  |
+ +----+     |  |  |  |
+ | |        |  |  +-----+
+ | +--------+  |     |  |
+ |             |     |  |
+ ?             ?     ?  ?
+@a1 173 18 76 9
+@a2 173 18 76 9
+
+
+
+@next
+@q2
+ 4         5 ?   ?   7
+  \       /   \ /     \
+   \     /     \       \
+    \   /     / \       \
+     \ /     /   \      /
+      \     /     \    /
+@q1
+     / \   /    ^  \  /
+    /   \ /    / \ / /
+   /     V    /   \ /
+  /          /   / V
+ /          /    \
+?          ?      2
+@a1 5 7
+@a2 2 4
+
+
+
+@next
+@q1
+ ?  ?         ?             ?
+ |  |         |             |
+ |  |   +-----+     +---+   |
+ |  |   |           |   |   |
+ |  +------+--------|-------+
+ |      |  |        |   |
+ +-+----+--------+  |   |
+   |       |     |  |   |
+@q2
+   |       |     |  |   |
+   |       |     |  +---|-----+
+   |  +----|--+  |  |   |     |
++--+  |    |  |  |  |   |     |
+|     |    |  +--|------|--+  |
++-----|----+     |  |   |  |  |
+|     |      +---+  +---+  |  |
+|     |      |   |         |  |
+?     ?      ?   ?         ?  ?
+@a1 ? ? ? ?
+@a2 ? ? ? ? ? ?
+
+
+
+@next
+@q1
+Are you ready to reach enlightenment?
+@q2
+Are you ready to reach enlightenment?
+@a1 yes
+@a2 yes
 
 
