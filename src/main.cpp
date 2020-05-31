@@ -1,7 +1,5 @@
 /*
 TODOs:
-- special ending
-- hacky highlight question marks in grey?
 - arrow keys to scroll
 - scroll bar
 - create map?
@@ -489,19 +487,31 @@ int main(int argc, char ** argv) {
             draw_sprite_a1(canvas, background, 0, 0);
         }
 
-
-
-        //fade in sound
-        if (fadeInTimer > 3) fadeInTimer = 3;
-        float globalVolume = (fadeInTimer / 3);
-        loud.setGlobalVolume(globalVolume * 0.666f);
-
         auto draw_text_centered = [] (Canvas canvas, MonoFont font, int cx, int cy, Color color, const char * text) {
             int len = strlen(text);
             int x = cx - font.glyphWidth * len / 2;
             int y = cy - font.glyphHeight / 2;
             draw_text(canvas, font, x, y, color, text);
         };
+
+        //draw end screen
+        if (lineIdx == puzzles[puzzleIdx].prompt.len && lineIdx > 100) {
+            Color green = { 83, 248, 68, 255 };
+            Color black = { 0, 0, 0, 255 };
+            draw_rect(canvas, 0, 0, canvasWidth, canvasHeight, green);
+            draw_text_centered(canvas, font, canvasWidth / 2, canvasHeight / 2 - ch / 2, black, "WELCOME TO THE DIGITAL");
+
+            if (lineTimer > 5) {
+                exit(1);
+            }
+        }
+
+
+
+        //fade in sound
+        if (fadeInTimer > 3) fadeInTimer = 3;
+        float globalVolume = (fadeInTimer / 3);
+        loud.setGlobalVolume(globalVolume * 0.666f);
 
         //apply fullscreen fade-in overlay
         fadeInTimer = 3; //DEBUG

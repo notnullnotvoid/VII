@@ -532,6 +532,9 @@ static inline void draw_glyph(Canvas & canvas, MonoFont & font, int cx, int cy, 
     int srcx = col * font.glyphWidth;
     int srcy = row * font.glyphHeight;
 
+    //HACK
+    if (glyph == '?') color = { 120, 128, 110, 255 };
+
     //"blit" glyph to the screen
     for (int y = 0; y < font.glyphHeight; ++y) {
         for (int x = 0; x < font.glyphWidth; ++x) {
