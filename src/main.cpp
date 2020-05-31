@@ -1,7 +1,5 @@
 /*
 TODOs:
-- spec out puzzles
-- non-instantaneous text appearance
 - special ending
 - hacky highlight question marks in grey?
 - arrow keys to scroll
@@ -14,7 +12,7 @@ TODOs:
     - maybe the bleed on (or mostly) goes horizontal?
 - screen-space CRT bulge effect
 - colored text?
-- remove debug stuff (anti-fade-in, "skip" keyword)
+- remove debug stuff (anti-fade-in, "pass" keyword)
 - windows builds
 
 REFACTORS:
@@ -243,18 +241,8 @@ int main(int argc, char ** argv) {
         //game progression
         List<Puzzle> puzzles = parse_puzzles();
         int puzzleIdx = 0;
-
-        //print initial puzzle
-        auto print_puzzle = [&] () {
-            for (Line line : puzzles[puzzleIdx].prompt) {
-                if (line.text) {
-                    term.add({ dsprintf(nullptr, " %s", line.text) });
-                } else {
-                    term.add(line);
-                }
-            }
-        };
-        print_puzzle();
+        int lineIdx = 0;
+        float lineTimer = 0;
 
         gl_error("program init");
     print_log("[] done initializing: %f seconds\n", get_time());
@@ -319,7 +307,7 @@ int main(int argc, char ** argv) {
                     }
 
                     //DEBUG
-                    if (tokens.len == 1 && !strcmp(tokens[0], "skip")) correct = true;
+                    if (tokens.len == 1 && !strcmp(tokens[0], "pass")) correct = true;
 
                     //clear input
                     input[0] = '\0';
@@ -329,7 +317,8 @@ int main(int argc, char ** argv) {
                         if (correct) {
                             ++puzzleIdx;
                             term.add({ dup("") });
-                            print_puzzle();
+                            lineIdx = 0;
+                            lineTimer = 0;
                         } else {
                             term.add({ dup(" ERROR: incorrect input") });
                         }
@@ -361,6 +350,20 @@ int main(int argc, char ** argv) {
         gifTimer += dt;
         blinkTimer += dt;
         fadeInTimer += dt;
+        lineTimer += dt;
+
+        //handle updating lines
+        float secondsPerLine = 0.02f;
+        while (lineIdx < puzzles[puzzleIdx].prompt.len && lineTimer > secondsPerLine) {
+            Line line = puzzles[puzzleIdx].prompt[lineIdx];
+            if (line.text) {
+                term.add({ dsprintf(nullptr, " %s", line.text) });
+            } else {
+                term.add(line);
+            }
+            ++lineIdx;
+            lineTimer -= secondsPerLine;
+        }
 
         //update
         float gameSpeed = 1;

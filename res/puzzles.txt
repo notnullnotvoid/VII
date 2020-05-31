@@ -13,19 +13,39 @@ Enter password:
 
 TODO: rework this next one maybe?
 
+// @next
+// @q2
+//   I      am
+//   |       |
+//   |   +---+
+//   |   |
+//   +-------+
+//       |   |
+// @q1
+//       |   |
+//   +---|---+
+//   |   |
+//   |   +---+
+//   |       |
+//   ?       ?
+// @a1 am i
+// @a2 am i
+
+
+
 @next
 @q2
 9    173
 |     |
-+--+  |    +------+
-   |  |    |      |
++--+  |   +-----+
+   |  |   |     |
 @q1
-   |  |    |      |
- +----+    |      |
- | |       |      |
- | +-------+      |
- |                |
- ?                ?
+   |  |   |     |
+ +----+   |     |
+ | |      |     |
+ | +------+     |
+ |              |
+ ?              ?
 @a1 173 9
 @a2 173 9
 
@@ -100,9 +120,11 @@ TODO: rework this next one maybe?
 
 @next
 @q1
-Are you ready to reach enlightenment?
+        Are you ready
+   to reach enlightenment?
 @q2
-Are you ready to reach enlightenment?
+        Are you ready
+   to reach enlightenment?
 @a1 yes
 @a2 yes
 
